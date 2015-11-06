@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title>Grid App</title>
+
+    <!-- js scripts -->
+    <script src="js/lib/jquery.min.js"></script>
+    <script src="js/lib/bootstrap.min.js"></script>
+    <script src="js/lib/jquery-ui.min.js"></script>
+    <script src="js/lib/bootstrap-select.js"></script>
+    <script src="js/lib/bootstrap-datepicker.js"></script>
+    <script src="js/lib/grid/minified-compiled-jquery.js"></script>
+    <script src="js/lib/grid/themes.js"></script>
+    <script src="js/lib/grid/Configuration.js"></script>
+    <script src="js/lib/grid/html2canvas.js"></script>
+    <script src="js/lib/grid/jspdf.source.js"></script>
+
+    <script src="js/service/Service.js"></script>
+    <script src="js/config/Config.js"></script>
+    <script src="js/utils/Utils.js"></script>
+    <script src="js/controller/GridController.js"></script>
+    <script src="js/controller/CostGridController.js"></script>
+    <script src="js/controller/ResourcePlanGridController.js"></script>
+    <script src="js/renderer/EditDeleteRenderer.js"></script>
+    <script src="js/renderer/CustomPagerControl.js"></script>
+    <!--End-->
+
+
+
+    <!-- stylesheets -->
+    <link rel="stylesheet" href="css/lib/bootstrap.min.css">
+    <link rel="stylesheet" href="css/lib/bootstrap-select.css">
+    <link rel="stylesheet" href="css/lib/bootstrap-datepicker3.standalone.css">
+    <link rel="stylesheet" href="css/lib/jquery-ui.css">
+    <link rel="stylesheet" href="css/lib/jquery-ui.structure.css">
+    <link rel="stylesheet" href="css/lib/jquery-ui.theme.css">
+    <link rel="stylesheet" href="css/lib/flexicious.css"/>
+    <!--<link rel="stylesheet" href="css/lib/spinner.css"/>-->
+    <link rel="stylesheet" href="css/app.css"/>
+
+
+    <script>
+
+        var hostWebUrl;
+        var appWebUrl;
+
+        $(function() {
+            $( "#tabs" ).tabs();
+        });
+
+        $(document).ready(function(){
+            new flexiciousNmsp.FlexDataGrid(document.getElementById("cost-grid-container"), {
+                configuration : GridConfig.GridXmlConfig.CostGrid
+            });
+
+            new flexiciousNmsp.FlexDataGrid(document.getElementById("res-plan-grid-container"), {
+                configuration : GridConfig.GridXmlConfig.ResourcePlanGrid
+            });
+
+            $(".selectpicker").selectpicker();
+            $("#transactionDate").datepicker({autoclose : true});
+            $("#transactionDate").datepicker("setDate", new Date());
+
+            $("#resPlanFilterStartDate").datepicker(
+                    {
+                        autoclose : true,
+                        format: "MM-yyyy",
+                        forceParse : false,
+                        viewMode: "months",
+                        minViewMode: "months"
+                    }
+            );
+            $("#resPlanFilterEndDate").datepicker(
+                    {
+                        autoclose : true,
+                        format: "MM-yyyy",
+                        forceParse : false,
+                        viewMode: "months",
+                        minViewMode: "months"
+                    }
+            );
+
+
+
+            Service.post(GridConfig.ServiceBaseUrl+"contextinfo", null, function (res) {
+                console.log(res);
+                $("#__REQUESTDIGEST").val(res.d.GetContextWebInformation.FormDigestValue);
+            })
+
+            var invalidateResPlanGrid = function(e, u){
+                if(u.newPanel[0].id == "resPlan"){
+                    ResourcePlanGridController.grid.setActualSize("100%", "600");
+                    ResourcePlanGridController.grid.rebuild();
+                    $('#tabs').off('tabsactivate', invalidateResPlanGrid);
+                }
+            };
+            $('#tabs').on('tabsactivate', invalidateResPlanGrid);
+        });
+    </script>
+
+</head>
+<body>
+
+<!--<div class="header">
+    <span class="headerText">Grid App</span>
+</div>-->
+
+<div id="tabs">
+    <ul>
+        <li><a href="#costItems">Cost</a></li>
+        <li><a href="#resPlan">Resource Plan</a></li>
+    </ul>
+    <div id="costItems" style="padding: 10px !important;">
+        <div class="wrapper">
+            <div id="cost-grid-container"></div>
+        </div>
+    </div>
+    <div id="resPlan" style="padding: 10px !important;">
+        <div class="wrapper">
+            <fieldset>
+                <legend>Filters</legend>
+                <div class="t-row">
+                    <div class="t-column">
+                        <span class="t-cell top-cell">UoM</span>
+                        <select class="selectpicker t-cell" id="resPlanUoMFilter" >
+                            <option value="Hours">Hours</option>
+                            <option value="FTE">FTE</option>
+                        </select>
+                    </div>
+
+                    <div class="t-column">
+                        <span class="t-cell top-cell">Start Date</span>
+                        <input class="t-cell bottom-cell form-control" type="text" id="resPlanFilterStartDate"/>
+                    </div>
+
+                    <div class="t-column">
+                        <span class="t-cell top-cell">End Date</span>
+                        <input class="t-cell bottom-cell form-control" type="text" id="resPlanFilterEndDate"/>
+                    </div>
+                </div>
+            </fieldset>
+            <div id="res-plan-grid-container"></div>
+        </div>
+    </div>
+
+</div>
+
+
+<div id="loader" style="display: none">
+    <img src="images/loading.GIF"><br>
+    <label> Loading... </label>
+</div>
+
+<input type="hidden" id="__REQUESTDIGEST"/>
+
+<div class="modal fade" id="addForm" tabindex="-1" role="dialog" aria-labelledby="addFormTitle">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="addFormTitle"></h4>
+            </div>
+            <div class="modal-body">
+
+                <span class="errorLabel" id="errorMessage"></span>
+
+                <div class="row row-item">
+                    <label class="row-item-left">Title * </label>
+                    <input class="form-control row-item-right" type="text" id="titleText"/>
+                </div>
+
+                <div class="row row-item">
+                    <label class="row-item-left">gwRole </label>
+                    <select class="selectpicker row-item-right" id="gwRoleCombo" >
+                        <option>1</option>
+                        <option>2</option>
+                        <option>3</option>
+                    </select>
+                </div>
+
+                <div class="row row-item">
+                    <label class="row-item-left">Level 1 </label>
+                    <select class="selectpicker row-item-right" id="level1Combo" >
+                        <option>Capital</option>
+                        <option>Expense</option>
+                    </select>
+                </div>
+
+                <div class="row row-item">
+                    <label class="row-item-left">Level 2 * </label>
+                    <select class="selectpicker row-item-right" id="level2Combo">
+                        <option>Equipment</option>
+                        <option>Software</option>
+                        <option>Labor</option>
+                        <option>Other</option>
+                        <option>-------</option>
+                        <option>Labor</option>
+                        <option>Contract Labor</option>
+                        <option>Travel</option>
+                        <option>Supplies</option>
+                        <option>Other Material</option>
+                        <option>Other Expenses</option>
+                    </select>
+                </div>
+
+                <div class="row row-item">
+                    <label class="row-item-left">2015 </label>
+                    <input class="form-control row-item-right" value="0" type="number" id="year2015"/>
+                </div>
+
+                <div class="row row-item">
+                    <label class="row-item-left">2016 </label>
+                    <input class="form-control row-item-right" value="0" type="number" id="year2016"/>
+                </div>
+
+                <div class="row row-item">
+                    <label class="row-item-left">2017 </label>
+                    <input class="form-control row-item-right" value="0" type="number" id="year2017"/>
+                </div>
+
+                <div class="row row-item">
+                    <label class="row-item-left">2018 </label>
+                    <input class="form-control row-item-right" value="0" type="number" id="year2018"/>
+                </div>
+
+                <div class="row row-item">
+                    <label class="row-item-left">2019 </label>
+                    <input class="form-control row-item-right" value="0" type="number" id="year2019"/>
+                </div>
+
+                <div class="row row-item">
+                    <label class="row-item-left">Transaction Date </label>
+                    <input class="form-control row-item-right" type="text" id="transactionDate"/>
+                </div>
+
+                <div class="row row-item">
+                    <label class="row-item-left">Year 2015 </label>
+                    <input class="form-control row-item-right" value="0" type="number" id="yearField2015"/>
+                </div>
+
+                <div class="row row-item">
+                    <label class="row-item-left">Project Name </label>
+                    <input class="form-control row-item-right" type="text" id="projectName"/>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" onclick="CostGridController.saveItem();">Save changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- res plan add edit popup -->
+<div class="modal fade" id="resPlanAddForm" tabindex="-1" role="dialog" aria-labelledby="resPlanAddFormTitle">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="resPlanAddFormTitle"></h4>
+            </div>
+            <div class="modal-body">
+
+                <span class="errorLabel" id="resPlanErrorMessage"></span>
+
+                <div class="row row-item">
+                    <label class="row-item-left">Project * </label>
+                    <input class="form-control row-item-right" type="text" id="resPlanProjectText"/>
+                </div>
+
+                <div class="row row-item">
+                    <label class="row-item-left">gwRole </label>
+                    <select class="selectpicker row-item-right" id="resPlanGwRoleCombo" >
+                        <option>1</option>
+                        <option>2</option>
+                        <option>3</option>
+                    </select>
+                </div>
+
+                <div class="row row-item">
+                    <label class="row-item-left">Role </label>
+                    <input class="form-control row-item-right" type="text" id="resPlanRoleText"/>
+                </div>
+
+                <div class="row row-item">
+                    <label class="row-item-left">Resource Name </label>
+                    <input class="form-control row-item-right" type="text" id="resPlanResNameText"/>
+                </div>
+
+                <div class="row row-item">
+                    <label class="row-item-left">Year </label>
+                    <input class="form-control row-item-right" value="0" type="number" id="resPlanYear"/>
+                </div>
+
+                <div class="row row-item">
+                    <label class="row-item-left">MonthNum </label>
+                    <input class="form-control row-item-right" value="0" type="number" id="resPlanMonthNum"/>
+                </div>
+
+                <div class="row row-item">
+                    <label class="row-item-left">MonthName </label>
+                    <input class="form-control row-item-right" id="resPlanMonthName"/>
+                </div>
+
+                <div class="row row-item">
+                    <label class="row-item-left">Hours </label>
+                    <input class="form-control row-item-right" value="0" type="number" id="resPlanHours"/>
+                </div>
+
+                <div class="row row-item">
+                    <label class="row-item-left">Rate </label>
+                    <input class="form-control row-item-right" value="0" type="number" id="resPlanRate"/>
+                </div>
+
+                <div class="row row-item">
+                    <label class="row-item-left">Cost </label>
+                    <input class="form-control row-item-right" type="number" value="0" id="resPlanCost"/>
+                </div>
+
+                <div class="row row-item">
+                    <label class="row-item-left">Capacity</label>
+                    <input class="form-control row-item-right" value="0" type="number" id="resPlanCapacity"/>
+                </div>
+
+                <div class="row row-item">
+                    <label class="row-item-left">FTE </label>
+                    <input class="form-control row-item-right" type="text" id="resPlanFTE"/>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" onclick="ResourcePlanGridController.saveItem();">Save changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+</body>
+</html>
